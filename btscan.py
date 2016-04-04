@@ -10,9 +10,14 @@ import bluetooth
 import bluetooth._bluetooth as bt
 import fcntl
 import datetime
+import requests#import RPi.GPIO as GPIO
 
 
 pulse_objects = Queue.Queue()
+
+DETECT_PIN=5
+CYCLE_TIME = 3.5
+
 
 
 def bluetooth_rssi(addr):
@@ -47,62 +52,39 @@ def bluetooth_rssi(addr):
     except:
         return None
 
-def scan():
-	info=" "
-	closest=''
-	sigStrong=-20
-	stamp = ' '
-	scanResults = []
-	nearby_devices = bluetooth.discover_devices(duration=5, lookup_names=True, flush_cache=True)
-	if(len(nearby_devices)==0):
-		return "none found"
-	for addr, name in nearby_devices:
-		rssi = bluetooth_rssi(addr)
-		if(rssi > sigStrong):
-			sigStrong = rssi
-			closest = name
-	ts = time.time()
-	stamp = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-	info =stamp+" "+closest+ " rssi:"+str(sigStrong)	
-
-	return info
-
-
-
-
+def scan(pulse_objects):
+	print " Starting BT SCAN \n"
+	while True:
+		closest='' #reset
+	        sigStrong=-20 #reset
+		nearby_devices = bluetooth.discover_devices(duration=5, lookup_names=True, flush_cache=True)
+		if(len(nearby_devices)==0):	#if no devices
+			closest = "none found"
+		for addr, name in nearby_devices:	#loops through list of scan results
+			rssi = bluetooth_rssi(addr)
+			if(rssi > sigStrong):		#sort
+				sigStrong = rssi
+				closest = name	
+		pulse_objects.put((closest))		#send value to other thread
+		print closest
+	
 
 def gpio(pulse_objects):
-	print " Starting GPIO SCAN "#Jon put your code here
-	count=0
-	gpio=0
-	while True:
-		if(count % 5 == 0):
-			gpio=1
-		else:
-			gpio=0
-		if(gpio == 1):
-			pulse_objects.put((gpio))#transfer var from one thread to 
-		count=count+1
-		
+	print " Starting GPIO SCAN \n"
+	url='https://localhost:1337/User/create?name='
+	urlData=' '
+	while True:	
+		if(GPIO.input(DETECT_PIN)):
+			print "Sensor Touched"	
+			data=pulse_objects.get()	#recv value of other thread
+			urlData = url + data #makes https://localhost:1337/User/create?name=UUID
+			resp = requests.post(urlData)
 
-def init(pulse_objects):
-	gpio=0
-	s = socket.socket()         # Create a socket object
-	host = socket.gethostname() # Get local machine name
-	port = 8000               # Reserve a port for your service.
-	s.bind((host, port))        # Bind to the port
-	s.listen(5)                 # Now wait for client connection.
-	while True:
-		client, address = s.accept()
-		gpio = pulse_objects.get()#add pushed		
-		if(gpio == 1):	
-			client.send(scan())
-		client.close()
 
-t1 = Thread(target = init, args = (pulse_objects,))
-t2 = Thread(target = gpio, args = (pulse_objects,))
+
+t1 = Thread(target = gpio, args = (pulse_objects,))
+t2 = Thread(target = scan, args = (pulse_objects,))
 
 t1.start()
 t2.start()
-
 
