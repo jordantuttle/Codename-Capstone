@@ -72,8 +72,8 @@ def scan(pulse_objects):
 
 def gpio(pulse_objects):
     print ' Starting GPIO SCAN \n'
-    url='https://localhost:1337/User/create?name='
-    urlData=' '
+    url = 'https://localhost:1337/User/create?name='
+    urlData = ' '
     while True:
         if(GPIO.input(DETECT_PIN)):
             print 'Sensor Touched'
@@ -82,6 +82,7 @@ def gpio(pulse_objects):
             # make https://localhost:1337/User/create?name=UUID
             urlData = url + data
             resp = requests.post(urlData)
+            time.sleep(CYCLE_TIME)
 
 
 
