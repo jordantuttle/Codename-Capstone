@@ -69,8 +69,8 @@ def gpio():
 			data = scan()
 			data = data.replace(' ', '')# to get rid of spaces in UUID so post wont fail
 			print data
-			#urlData = url + data #makes https://localhost:1337/User/create?name=UUID
-			#resp = requests.post(urlData)
+			urlData = url + data #makes https://localhost:1337/User/create?name=UUID
+			resp = requests.post(urlData)
 
 
 
