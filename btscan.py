@@ -17,7 +17,7 @@ import RPi.GPIO as GPIO
 pulse_objects = Queue.Queue()
 
 DETECT_PIN = 5
-CYCLE_TIME = 3.5
+CYCLE_TIME = 1
 
 
 
@@ -57,7 +57,7 @@ def scan(pulse_objects):
     print ' Starting BT SCAN \n'
     while True:
         closest = ''  # reset
-            sigStrong =- 20
+        sigStrong =- 20
         nearby_devices = bluetooth.discover_devices(duration=5, lookup_names=True, flush_cache=True)
         if(len(nearby_devices) == 0):  #if no devices
             closest = 'none found'
@@ -71,13 +71,15 @@ def scan(pulse_objects):
 
 
 def gpio(pulse_objects):
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(DETECT_PIN, GPIO.IN)
     print ' Starting GPIO SCAN \n'
     url = 'https://localhost:1337/User/create?name='
     urlData = ' '
     while True:
         if(GPIO.input(DETECT_PIN)):
             print 'Sensor Touched'
-            data=pulse_objects.get()  #recv value of other thread
+            data = pulse_objects.get()  #recv value of other thread
 
             # make https://localhost:1337/User/create?name=UUID
             urlData = url + data
