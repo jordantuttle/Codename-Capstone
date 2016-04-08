@@ -1,5 +1,5 @@
-#!/usr/bin/python          
-import socket#socket stuff
+#!/usr/bin/python
+import socket
 import time
 import thread
 import Queue
@@ -10,13 +10,14 @@ import bluetooth
 import bluetooth._bluetooth as bt
 import fcntl
 import datetime
-import requests#import RPi.GPIO as GPIO
+import requests
+import RPi.GPIO as GPIO
 
 
 pulse_objects = Queue.Queue()
 
-DETECT_PIN=5
-CYCLE_TIME = 3.5
+DETECT_PIN = 5
+CYCLE_TIME = 1
 
 
 
@@ -28,14 +29,14 @@ def bluetooth_rssi(addr):
     # Connect to device (to whatever you like)
     bt_sock = bluetooth.BluetoothSocket(bluetooth.L2CAP)
     bt_sock.settimeout(10)
-    result = bt_sock.connect_ex((addr, 1))	# PSM 1 - Service Discovery
+    result = bt_sock.connect_ex((addr, 1))  # PSM 1 - Service Discovery
 
     try:
         # Get ConnInfo
-        reqstr = struct.pack("6sB17s", bt.str2ba(addr), bt.ACL_LINK, "\0" * 17)
-        request = array.array("c", reqstr )
+        reqstr = struct.pack('6sB17s', bt.str2ba(addr), bt.ACL_LINK, '\0' * 17)
+        request = array.array('c', reqstr )
         handle = fcntl.ioctl(hci_fd, bt.HCIGETCONNINFO, request, 1)
-        handle = struct.unpack("8xH14x", request.tostring())[0]
+        handle = struct.unpack('8xH14x', request.tostring())[0]
 
         # Get RSSI
         cmd_pkt=struct.pack('H', handle)
@@ -53,32 +54,37 @@ def bluetooth_rssi(addr):
         return None
 
 def scan(pulse_objects):
-	print " Starting BT SCAN \n"
-	while True:
-		closest='' #reset
-	        sigStrong=-20 #reset
-		nearby_devices = bluetooth.discover_devices(duration=5, lookup_names=True, flush_cache=True)
-		if(len(nearby_devices)==0):	#if no devices
-			closest = "none found"
-		for addr, name in nearby_devices:	#loops through list of scan results
-			rssi = bluetooth_rssi(addr)
-			if(rssi > sigStrong):		#sort
-				sigStrong = rssi
-				closest = name	
-		pulse_objects.put((closest))		#send value to other thread
-		print closest
-	
+    print ' Starting BT SCAN \n'
+    while True:
+        closest = ''  # reset
+        sigStrong =- 20
+        nearby_devices = bluetooth.discover_devices(duration=5, lookup_names=True, flush_cache=True)
+        if(len(nearby_devices) == 0):  #if no devices
+            closest = 'none found'
+        for addr, name in nearby_devices:  #loops through list of scan results
+            rssi = bluetooth_rssi(addr)
+            if(rssi > sigStrong):  #sort
+                sigStrong = rssi
+                closest = name
+        pulse_objects.put((closest))  #send value to other thread
+        print closest
+
 
 def gpio(pulse_objects):
-	print " Starting GPIO SCAN \n"
-	url='https://localhost:1337/User/create?name='
-	urlData=' '
-	while True:	
-		if(GPIO.input(DETECT_PIN)):
-			print "Sensor Touched"	
-			data=pulse_objects.get()	#recv value of other thread
-			urlData = url + data #makes https://localhost:1337/User/create?name=UUID
-			resp = requests.post(urlData)
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(DETECT_PIN, GPIO.IN)
+    print ' Starting GPIO SCAN \n'
+    url = 'https://localhost:1337/User/create?name='
+    urlData = ' '
+    while True:
+        if(GPIO.input(DETECT_PIN)):
+            print 'Sensor Touched'
+            data = pulse_objects.get()  #recv value of other thread
+
+            # make https://localhost:1337/User/create?name=UUID
+            urlData = url + data
+            resp = requests.post(urlData)
+            time.sleep(CYCLE_TIME)
 
 
 
@@ -87,4 +93,3 @@ t2 = Thread(target = scan, args = (pulse_objects,))
 
 t1.start()
 t2.start()
-
